@@ -251,15 +251,15 @@ function Home() {
       >
         <nav className="container-x flex items-center justify-between py-5">
           <a href="#top" className="flex items-baseline gap-2">
-            <span className="font-display text-xl tracking-tight">Bean Journal</span>
-            <span className="hidden text-[10px] tracking-[0.25em] uppercase text-copper sm:inline">
+            <span className={`${scrolled ?"font-display text-xl tracking-tight":"text-white font-display text-xl"}`}>Bean Journal</span>
+            <span className={`${scrolled ?"hidden text-[10px] tracking-[0.25em] uppercase text-copper sm:inline":"text-secondary text-[10px] tracking-[0.25em] uppercase"}`}>
               Boutique Café
             </span>
           </a>
           <ul className="hidden gap-7 text-sm lg:flex">
             {NAV.map((n) => (
               <li key={n.href}>
-                <a href={n.href} className="text-foreground/70 transition hover:text-copper">
+                <a href={n.href} className={`${scrolled ?"text-foreground/70 transition hover:text-copper":"text-white text-foreground/70 transition hover:text-copper"}`}>
                   {n.label}
                 </a>
               </li>
@@ -377,7 +377,7 @@ function Home() {
       <div className="overflow-hidden border-y border-border bg-cream py-5">
         <div className="flex animate-marquee whitespace-nowrap">
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="flex shrink-0 items-center gap-12 pr-12 font-display text-3xl italic text-espresso/70 md:text-4xl">
+            <div key={i} className="flex shrink-0 items-center gap-12 pr-12 font-display text-1xl italic text-espresso/70 md:text-2xl">
               <span>Slow coffee</span><span className="text-copper">✦</span>
               <span>Wood-fired</span><span className="text-copper">✦</span>
               <span>Handcrafted desserts</span><span className="text-copper">✦</span>
