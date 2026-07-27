@@ -9,10 +9,18 @@ import userCoffee from "@/assets/barista.jpg";
 import userSalad from "@/assets/dessert.jpg";
 import userSizzler from "@/assets/pizza.jpg";
 import userCafeVibe from "@/assets/ambience-1.jpg";
+import { AnimatePresence, motion } from "framer-motion";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
+const HERO_IMAGES = [
+  heroCafe,
+  cafeInterior,
+  cafeMocha,
+  cafePizza,
+  cafeSandwich,
+];
 
 const NAV = [
   { href: "#story", label: "Story" },
@@ -198,6 +206,8 @@ function Home() {
   const [activeCat, setActiveCat] = useState(0);
   const [reviewForm, setReviewForm] = useState({ name: "", rating: 5, body: "" });
   const [submitted, setSubmitted] = useState(false);
+  const [currentHero, setCurrentHero] = useState(0);
+  const [burn, setBurn] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -205,6 +215,24 @@ function Home() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+
+      setBurn(true);
+
+      setTimeout(() => {
+        setCurrentHero((prev) => (prev + 1) % HERO_IMAGES.length);
+      }, 250);
+
+      setTimeout(() => {
+        setBurn(false);
+      }, 900);
+
+    }, 6000);
+
+    return () => clearInterval(interval);
+
+  }, []);
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
@@ -218,9 +246,8 @@ function Home() {
     <div className="min-h-screen bg-background text-foreground">
       {/* NAV */}
       <header
-        className={`fixed top-0 z-50 w-full transition-all ${
-          scrolled ? "bg-background/85 backdrop-blur-md border-b border-border" : ""
-        }`}
+        className={`fixed top-0 z-50 w-full transition-all ${scrolled ? "bg-background/85 backdrop-blur-md border-b border-border" : ""
+          }`}
       >
         <nav className="container-x flex items-center justify-between py-5">
           <a href="#top" className="flex items-baseline gap-2">
@@ -249,18 +276,83 @@ function Home() {
 
       {/* HERO */}
       <section id="top" className="relative min-h-[100svh] overflow-hidden">
-        <img
-          src={heroCafe}
-          alt="Warm interior of The Bean Journal Boutique Café"
-          width={1600}
-          height={1200}
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        <AnimatePresence mode="wait">
+          <motion.img
+  key={currentHero}
+  src={HERO_IMAGES[currentHero]}
+  className="absolute inset-0 h-full w-full object-cover"
+
+  initial={{
+    opacity: 0,
+    scale: 1.15,
+  }}
+
+  animate={{
+    opacity: 1,
+    scale: 1,
+
+    x: burn ? [0, -2, 2, -1, 0] : 0,
+    y: burn ? [0, 1, -2, 1, 0] : 0,
+    rotate: burn ? [0, -0.2, 0.15, 0] : 0,
+
+    filter: burn
+      ? [
+          "brightness(1)",
+          "brightness(1.9) contrast(1.6) sepia(.4)",
+          "brightness(1)"
+        ]
+      : "brightness(1)",
+  }}
+
+  exit={{
+    opacity: 0,
+    scale: 1.08,
+  }}
+
+  transition={{
+    duration: 1.2,
+    ease: "easeInOut",
+  }}
+/>
+        </AnimatePresence>
+        <AnimatePresence>
+          {burn && (
+            <motion.div
+              className="absolute inset-0 pointer-events-none z-20"
+
+              initial={{
+                opacity: 0
+              }}
+
+              animate={{
+                opacity: [0, .9, .3, 0]
+              }}
+
+              exit={{
+                opacity: 0
+              }}
+
+              transition={{
+                duration: .8
+              }}
+
+              style={{
+                background: `
+          radial-gradient(circle at 15% 40%, rgba(255,220,150,.95), transparent 30%),
+          radial-gradient(circle at 75% 20%, rgba(255,110,0,.85), transparent 40%),
+          radial-gradient(circle at 100% 70%, rgba(255,40,0,.7), transparent 30%)
+        `,
+                mixBlendMode: "screen",
+                filter: "blur(20px)"
+              }}
+            />
+          )}
+        </AnimatePresence>
         <div className="absolute inset-0 bg-gradient-to-b from-espresso/60 via-espresso/50 to-espresso/85" />
         <div className="relative container-x flex min-h-[100svh] flex-col justify-end pb-20 pt-32 text-cream">
           <p className="eyebrow animate-fade-up text-copper/90">Est. Guwahati · Uzan Bazar</p>
-          <h1 className="mt-6 max-w-4xl text-5xl leading-[0.95] sm:text-7xl md:text-[8rem] animate-fade-up">
-            Every cup <em className="italic font-light text-copper">tells</em> a story.
+          <h1 className="mt-6 max-w-4xl text-5xl leading-[0.95] sm:text-7xl md:text-[6rem] animate-fade-up">
+            Every cup <span className=" font-light text-copper">tells</span> a story.
           </h1>
           <p className="mt-8 max-w-xl text-base leading-relaxed text-cream/80 sm:text-lg animate-fade-up">
             A boutique café where slow-brewed coffee, wood-fired plates and quiet corners come
@@ -419,11 +511,10 @@ function Home() {
             <button
               key={s.category}
               onClick={() => setActiveCat(i)}
-              className={`rounded-full border px-5 py-2.5 text-sm transition ${
-                activeCat === i
-                  ? "border-espresso bg-espresso text-cream"
-                  : "border-border bg-transparent text-foreground/70 hover:border-copper hover:text-copper"
-              }`}
+              className={`rounded-full border px-5 py-2.5 text-sm transition ${activeCat === i
+                ? "border-espresso bg-espresso text-cream"
+                : "border-border bg-transparent text-foreground/70 hover:border-copper hover:text-copper"
+                }`}
             >
               {s.category}
             </button>
@@ -545,9 +636,8 @@ function Home() {
                         key={n}
                         type="button"
                         onClick={() => setReviewForm((f) => ({ ...f, rating: n }))}
-                        className={`text-2xl transition ${
-                          n <= reviewForm.rating ? "text-copper" : "text-cream/25"
-                        }`}
+                        className={`text-2xl transition ${n <= reviewForm.rating ? "text-copper" : "text-cream/25"
+                          }`}
                         aria-label={`${n} stars`}
                       >
                         ★
