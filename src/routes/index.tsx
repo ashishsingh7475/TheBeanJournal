@@ -200,18 +200,37 @@ const HOURS = [
   ["Friday – Saturday", "10:30 AM – 11:00 PM"],
   ["Sunday", "11:00 AM – 10:00 PM"],
 ];
-
+const HERO_HEADINGS = [
+  "Every cup tells a story",
+  "Crafted for quiet moments",
+  "Coffee worth slowing down for",
+  "Where mornings begin beautifully",
+];
 function Home() {
   const [scrolled, setScrolled] = useState(false);
   const [activeCat, setActiveCat] = useState(0);
+  const [activeNav, setActiveNav] = useState(0);
   const [reviewForm, setReviewForm] = useState({ name: "", rating: 5, body: "" });
   const [submitted, setSubmitted] = useState(false);
   const [currentHero, setCurrentHero] = useState(0);
   const [burn, setBurn] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const onScroll = () => {
+      const scrollPos = window.scrollY + 120;
+      let current = 0;
+      NAV.forEach((item, index) => {
+        const section = document.querySelector(item.href);
+        if (section instanceof HTMLElement && section.offsetTop <= scrollPos) {
+          current = index;
+        }
+      });
+      setActiveNav(current);
+      setScrolled(window.scrollY > 40);
+    };
+
     window.addEventListener("scroll", onScroll);
+    onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -246,20 +265,20 @@ function Home() {
     <div className="min-h-screen bg-background text-foreground">
       {/* NAV */}
       <header
-        className={`fixed top-0 z-50 w-full transition-all ${scrolled ? "bg-background/85 backdrop-blur-md border-b border-border" : ""
+        className={`fixed top-0 z-50 w-full transition-all ${scrolled ? "bg-background/85 backdrop-blur-md" : ""
           }`}
       >
         <nav className="container-x flex items-center justify-between py-5">
           <a href="#top" className="flex items-baseline gap-2">
-            <span className={`${scrolled ?"font-display text-xl tracking-tight":"text-white font-display text-xl"}`}>Bean Journal</span>
-            <span className={`${scrolled ?"hidden text-[10px] tracking-[0.25em] uppercase text-copper sm:inline":"text-secondary text-[10px] tracking-[0.25em] uppercase"}`}>
+            <span className={`${scrolled ? "font-display text-xl tracking-tight" : "text-white font-display text-xl"}`}>Bean Journal</span>
+            <span className={`${scrolled ? "hidden text-[10px] tracking-[0.25em] uppercase text-copper sm:inline" : "hidden text-secondary text-[10px] tracking-[0.25em] uppercase"}`}>
               Boutique Café
             </span>
           </a>
           <ul className="hidden gap-7 text-sm lg:flex">
             {NAV.map((n) => (
               <li key={n.href}>
-                <a href={n.href} className={`${scrolled ?"text-foreground/70 transition hover:text-copper":"text-white text-foreground/70 transition hover:text-copper"}`}>
+                <a href={n.href} className={`${scrolled ? "text-foreground/70 transition hover:text-copper" : "text-white text-foreground/70 transition hover:text-copper"}`}>
                   {n.label}
                 </a>
               </li>
@@ -272,48 +291,62 @@ function Home() {
             Reserve
           </a>
         </nav>
+        <div className={`sm:hidden absolute inset-x-0 top-full z-40 bg-background/85 backdrop-blur-md transition-all duration-300 ${scrolled ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}`}>
+          <div className="container-x grid grid-cols-5 text-center text-[11px] leading-none text-foreground/70">
+            {NAV.map((n, index) => (
+              <a
+                key={n.href}
+                href={n.href}
+                onClick={() => setActiveNav(index)}
+                className={`block px-0 py-1.5 transition ${activeNav === index ? "text-copper font-semibold" : "hover:text-copper"}`}
+              >
+                {n.label}
+              </a>
+            ))}
+          </div>
+        </div>
       </header>
 
       {/* HERO */}
       <section id="top" className="relative min-h-[100svh] overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.img
-  key={currentHero}
-  src={HERO_IMAGES[currentHero]}
-  className="absolute inset-0 h-full w-full object-cover"
+            key={currentHero}
+            src={HERO_IMAGES[currentHero]}
+            className="absolute inset-0 h-full w-full object-cover"
 
-  initial={{
-    opacity: 0,
-    scale: 1.15,
-  }}
+            initial={{
+              opacity: 0,
+              scale: 1.15,
+            }}
 
-  animate={{
-    opacity: 1,
-    scale: 1,
+            animate={{
+              opacity: 1,
+              scale: 1,
 
-    x: burn ? [0, -2, 2, -1, 0] : 0,
-    y: burn ? [0, 1, -2, 1, 0] : 0,
-    rotate: burn ? [0, -0.2, 0.15, 0] : 0,
+              x: burn ? [0, -2, 2, -1, 0] : 0,
+              y: burn ? [0, 1, -2, 1, 0] : 0,
+              rotate: burn ? [0, -0.2, 0.15, 0] : 0,
 
-    filter: burn
-      ? [
-          "brightness(1)",
-          "brightness(1.9) contrast(1.6) sepia(.4)",
-          "brightness(1)"
-        ]
-      : "brightness(1)",
-  }}
+              filter: burn
+                ? [
+                  "brightness(1)",
+                  "brightness(1.9) contrast(1.6) sepia(.4)",
+                  "brightness(1)"
+                ]
+                : "brightness(1)",
+            }}
 
-  exit={{
-    opacity: 0,
-    scale: 1.08,
-  }}
+            exit={{
+              opacity: 0,
+              scale: 1.08,
+            }}
 
-  transition={{
-    duration: 1.2,
-    ease: "easeInOut",
-  }}
-/>
+            transition={{
+              duration: 1.2,
+              ease: "easeInOut",
+            }}
+          />
         </AnimatePresence>
         <AnimatePresence>
           {burn && (
@@ -351,10 +384,52 @@ function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-espresso/60 via-espresso/50 to-espresso/85" />
         <div className="relative container-x flex min-h-[100svh] flex-col justify-end pb-20 pt-32 text-cream">
           <p className="eyebrow animate-fade-up text-copper/90">Est. Guwahati · Uzan Bazar</p>
-          <h1 className="mt-6 max-w-4xl text-5xl leading-[0.95] sm:text-7xl md:text-[6rem] animate-fade-up">
-            Every cup <span className=" font-light text-copper">tells</span> a story.
-          </h1>
-          <p className="mt-8 max-w-xl text-base leading-relaxed text-cream/80 sm:text-lg animate-fade-up">
+          <h1 className="mt-6 max-w-4xl text-5xl leading-[0.95] sm:text-7xl md:text-[6rem]">
+  <AnimatePresence mode="wait">
+    <motion.div
+      key={currentHero}
+      className="flex flex-wrap gap-x-4"
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      {HERO_HEADINGS[currentHero % HERO_HEADINGS.length]
+        .split(" ")
+        .map((word, index) => (
+          <motion.span
+            key={index}
+            variants={{
+              hidden: {
+                opacity: 0,
+                y: 60,
+                filter: "blur(8px)",
+              },
+              visible: {
+                opacity: 1,
+                y: 0,
+                filter: "blur(0px)",
+                transition: {
+                  delay: index * 0.08,
+                  duration: 0.6,
+                },
+              },
+              exit: {
+                opacity: 0,
+                y: -40,
+                filter: "blur(8px)",
+                transition: {
+                  duration: 0.25,
+                },
+              },
+            }}
+          >
+            {word}
+          </motion.span>
+        ))}
+    </motion.div>
+  </AnimatePresence>
+</h1>
+          <p className="mt-8 max-w-xl text-sm leading-relaxed text-cream/80 sm:text-base animate-fade-up">
             A boutique café where slow-brewed coffee, wood-fired plates and quiet corners come
             together on Lamb Road. Sit down. Turn a page. Stay a while.
           </p>
@@ -393,17 +468,17 @@ function Home() {
       <section id="story" className="container-x grid gap-16 py-28 md:grid-cols-12 md:py-40">
         <div className="md:col-span-5">
           <p className="eyebrow">Our Story</p>
-          <h2 className="mt-6 text-5xl leading-[1.05] md:text-6xl">
+          <h2 className="mt-6 text-4xl leading-[1.05] md:text-5xl">
             A little café with a <em className="italic text-copper">long</em> memory.
           </h2>
         </div>
         <div className="space-y-6 md:col-span-6 md:col-start-7 md:text-lg">
-          <p className="leading-relaxed text-foreground/80">
+          <p className="leading-relaxed text-foreground/60">
             Tucked into a quiet corner of Uzan Bazar, The Bean Journal began as a page in
             someone's diary — a place where the smell of freshly ground beans, the soft clink
             of ceramic, and the warmth of shared conversation could all live under one roof.
           </p>
-          <p className="leading-relaxed text-foreground/80">
+          <p className="leading-relaxed text-foreground/60">
             Today it stands as one of Guwahati's most-loved boutique cafés, pairing
             single-origin coffees with a Continental, Italian and Mediterranean-inspired
             kitchen. Every table has a story. Every visit adds a chapter.
@@ -415,7 +490,7 @@ function Home() {
               ["1000+", "Regulars"],
             ].map(([n, l]) => (
               <div key={l}>
-                <div className="font-display text-4xl text-copper">{n}</div>
+                <div className="font-display text-3xl text-copper">{n}</div>
                 <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">{l}</div>
               </div>
             ))}
