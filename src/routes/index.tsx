@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import heroCafe from "@/assets/hero-cafe.jpg";
 import cafePizza from "@/assets/pizza.jpg";
@@ -10,6 +10,11 @@ import userSalad from "@/assets/dessert.jpg";
 import userSizzler from "@/assets/pizza.jpg";
 import userCafeVibe from "@/assets/ambience-1.jpg";
 import { AnimatePresence, motion } from "framer-motion";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Pagination, Autoplay } from "swiper/modules";
+
+import "swiper/css";
+import "swiper/css/pagination";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -25,7 +30,7 @@ const HERO_IMAGES = [
 const NAV = [
   { href: "#story", label: "Story" },
   { href: "#menu", label: "Menu" },
-  { href: "#full-menu", label: "Full Menu" },
+  { href: "/order", label: "Order" },
   { href: "#reviews", label: "Reviews" },
   { href: "#visit", label: "Visit" },
 ];
@@ -205,7 +210,9 @@ const HERO_HEADINGS = [
   "Crafted for quiet moments",
   "Coffee worth slowing down for",
   "Where mornings begin beautifully",
+  "আড্ডা আৰু কফি"
 ];
+
 function Home() {
   const [scrolled, setScrolled] = useState(false);
   const [activeCat, setActiveCat] = useState(0);
@@ -220,6 +227,10 @@ function Home() {
       const scrollPos = window.scrollY + 120;
       let current = 0;
       NAV.forEach((item, index) => {
+        if (!item.href.startsWith("#")) {
+          return;
+        }
+
         const section = document.querySelector(item.href);
         if (section instanceof HTMLElement && section.offsetTop <= scrollPos) {
           current = index;
@@ -278,9 +289,18 @@ function Home() {
           <ul className="hidden gap-7 text-sm lg:flex">
             {NAV.map((n) => (
               <li key={n.href}>
-                <a href={n.href} className={`${scrolled ? "text-foreground/70 transition hover:text-copper" : "text-white text-foreground/70 transition hover:text-copper"}`}>
-                  {n.label}
-                </a>
+                {n.href.startsWith("/") ? (
+                  <Link
+                    to={n.href}
+                    className={`${scrolled ? "text-foreground/70 transition hover:text-copper" : "text-white text-foreground/70 transition hover:text-copper"}`}
+                  >
+                    {n.label}
+                  </Link>
+                ) : (
+                  <a href={n.href} className={`${scrolled ? "text-foreground/70 transition hover:text-copper" : "text-white text-foreground/70 transition hover:text-copper"}`}>
+                    {n.label}
+                  </a>
+                )}
               </li>
             ))}
           </ul>
@@ -294,14 +314,25 @@ function Home() {
         <div className={`sm:hidden absolute inset-x-0 top-full z-40 bg-background/85 backdrop-blur-md transition-all duration-300 ${scrolled ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}`}>
           <div className="container-x grid grid-cols-5 text-center text-[11px] leading-none text-foreground/70">
             {NAV.map((n, index) => (
-              <a
-                key={n.href}
-                href={n.href}
-                onClick={() => setActiveNav(index)}
-                className={`block px-0 py-1.5 transition ${activeNav === index ? "text-copper font-semibold" : "hover:text-copper"}`}
-              >
-                {n.label}
-              </a>
+              n.href.startsWith("/") ? (
+                <Link
+                  key={n.href}
+                  to={n.href}
+                  onClick={() => setActiveNav(index)}
+                  className={`block px-0 py-1.5 transition ${activeNav === index ? "text-copper font-semibold" : "hover:text-copper"}`}
+                >
+                  {n.label}
+                </Link>
+              ) : (
+                <a
+                  key={n.href}
+                  href={n.href}
+                  onClick={() => setActiveNav(index)}
+                  className={`block px-0 py-1.5 transition ${activeNav === index ? "text-copper font-semibold" : "hover:text-copper"}`}
+                >
+                  {n.label}
+                </a>
+              )
             ))}
           </div>
         </div>
@@ -385,50 +416,50 @@ function Home() {
         <div className="relative container-x flex min-h-[100svh] flex-col justify-end pb-20 pt-32 text-cream">
           <p className="eyebrow animate-fade-up text-copper/90">Est. Guwahati · Uzan Bazar</p>
           <h1 className="mt-6 max-w-4xl text-5xl leading-[0.95] sm:text-7xl md:text-[6rem]">
-  <AnimatePresence mode="wait">
-    <motion.div
-      key={currentHero}
-      className="flex flex-wrap gap-x-4"
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-    >
-      {HERO_HEADINGS[currentHero % HERO_HEADINGS.length]
-        .split(" ")
-        .map((word, index) => (
-          <motion.span
-            key={index}
-            variants={{
-              hidden: {
-                opacity: 0,
-                y: 60,
-                filter: "blur(8px)",
-              },
-              visible: {
-                opacity: 1,
-                y: 0,
-                filter: "blur(0px)",
-                transition: {
-                  delay: index * 0.08,
-                  duration: 0.6,
-                },
-              },
-              exit: {
-                opacity: 0,
-                y: -40,
-                filter: "blur(8px)",
-                transition: {
-                  duration: 0.25,
-                },
-              },
-            }}
-          >
-            {word}
-          </motion.span>
-        ))}
-    </motion.div>
-  </AnimatePresence>
-</h1>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentHero}
+                className="flex flex-wrap gap-x-4"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                {HERO_HEADINGS[currentHero % HERO_HEADINGS.length]
+                  .split(" ")
+                  .map((word, index) => (
+                    <motion.span
+                      key={index}
+                      variants={{
+                        hidden: {
+                          opacity: 0,
+                          y: 60,
+                          filter: "blur(8px)",
+                        },
+                        visible: {
+                          opacity: 1,
+                          y: 0,
+                          filter: "blur(0px)",
+                          transition: {
+                            delay: index * 0.08,
+                            duration: 0.6,
+                          },
+                        },
+                        exit: {
+                          opacity: 0,
+                          y: -40,
+                          filter: "blur(8px)",
+                          transition: {
+                            duration: 0.25,
+                          },
+                        },
+                      }}
+                    >
+                      {word}
+                    </motion.span>
+                  ))}
+              </motion.div>
+            </AnimatePresence>
+          </h1>
           <p className="mt-8 max-w-xl text-sm leading-relaxed text-cream/80 sm:text-base animate-fade-up">
             A boutique café where slow-brewed coffee, wood-fired plates and quiet corners come
             together on Lamb Road. Sit down. Turn a page. Stay a while.
@@ -437,6 +468,12 @@ function Home() {
             <a href="#menu" className="rounded-full bg-cream px-7 py-3.5 text-sm font-medium text-espresso transition hover:bg-copper hover:text-cream">
               Explore the menu
             </a>
+            <Link
+              to="/order"
+              className="rounded-full border border-cream/50 bg-cream/10 px-7 py-3.5 text-sm font-medium text-cream transition hover:border-copper hover:text-copper"
+            >
+              Order now
+            </Link>
             <a href="#visit" className="text-sm text-cream/90 underline underline-offset-8 hover:text-copper">
               Find us →
             </a>
@@ -520,28 +557,66 @@ function Home() {
         <div className="container-x">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
-              <p className="eyebrow text-copper">Menu Highlights</p>
-              <h2 className="mt-6 text-5xl md:text-7xl">Small plates. <em className="italic text-copper">Big</em> flavors.</h2>
+              <p className="eyebrow text-copper">Small plates. Big flavors</p>
+              <h2 className="mt-6 text-3xl md:text-4xl">Menu <span className="text-copper">Highlights</span></h2>
             </div>
             <p className="max-w-sm text-sm text-cream/70">
-              A snapshot of what our regulars love. Scroll down for the full menu.
+              A snapshot of what our regulars love. Order directly from this menu when you are ready.
             </p>
           </div>
 
-          <div className="mt-16 grid gap-10 md:grid-cols-3 md:gap-16">
+          <div className="mt-16 md:hidden">
+            <Swiper
+              modules={[Pagination, Autoplay]}
+              slidesPerView={1}
+              spaceBetween={24}
+              loop={true}
+              autoplay={{
+                delay: 4000,
+                disableOnInteraction: false,
+              }}
+              pagination={{
+                clickable: true,
+              }}
+            >
+              {HIGHLIGHTS.map((section, idx) => (
+                <SwiperSlide key={section.category}>
+                  <div className="border-t border-cream/15 pt-8 pb-12">
+                    <div className="mb-8 flex items-baseline justify-between">
+                      <h3 className="font-display text-2xl">{section.category}</h3>
+                      <span className="font-display text-copper">0{idx + 1}</span>
+                    </div>
+
+                    <ul className="space-y-6">
+                      {section.items.map((item) => (
+                        <li key={item.name} className="group">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <div className="font-display text-lg transition group-hover:text-copper">{item.name}</div>
+                            <div className="text-sm text-copper">{item.price}</div>
+                          </div>
+                          <div className="mt-1 text-sm text-cream/60">{item.desc}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
+
+          <div className="mt-16 hidden gap-10 md:grid md:grid-cols-3 md:gap-16">
             {HIGHLIGHTS.map((section, idx) => (
               <div key={section.category} className="border-t border-cream/15 pt-8">
                 <div className="mb-8 flex items-baseline justify-between">
                   <h3 className="font-display text-2xl">{section.category}</h3>
                   <span className="font-display text-copper">0{idx + 1}</span>
                 </div>
+
                 <ul className="space-y-6">
                   {section.items.map((item) => (
                     <li key={item.name} className="group">
                       <div className="flex items-baseline justify-between gap-4">
-                        <div className="font-display text-lg transition group-hover:text-copper">
-                          {item.name}
-                        </div>
+                        <div className="font-display text-lg transition group-hover:text-copper">{item.name}</div>
                         <div className="text-sm text-copper">{item.price}</div>
                       </div>
                       <div className="mt-1 text-sm text-cream/60">{item.desc}</div>
@@ -552,67 +627,37 @@ function Home() {
             ))}
           </div>
 
-          {/* real cafe photos grid */}
-          <div className="mt-20 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+          <div className="mt-20 md:hidden">
+            <div className="mobile-photo-scroll overflow-hidden rounded-md">
+              <div className="mobile-photo-track flex w-max items-center gap-4">
+                {[cafePizza, cafeSandwich, cafeMocha, cafeInterior, cafePizza, cafeSandwich, cafeMocha, cafeInterior].map((src, i) => (
+                  <img
+                    key={`${src}-${i}`}
+                    src={src}
+                    loading="lazy"
+                    alt=""
+                    className="h-64 w-64 shrink-0 rounded-md object-cover sm:h-72 sm:w-72"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-20 hidden md:grid md:grid-cols-4 md:gap-6">
             {[cafePizza, cafeSandwich, cafeMocha, cafeInterior].map((src, i) => (
               <img key={i} src={src} loading="lazy" alt="" className="aspect-square w-full rounded-md object-cover" />
             ))}
           </div>
 
-          <div className="mt-12 text-center">
-            <a href="#full-menu" className="inline-flex items-center gap-2 rounded-full border border-cream/30 px-8 py-4 text-sm text-cream transition hover:border-copper hover:text-copper">
-              See the full menu <span aria-hidden>↓</span>
-            </a>
+          <div className="mt-12 flex justify-center">
+            <Link
+              to="/order"
+              className="inline-flex items-center gap-2 rounded-full border border-cream/30 bg-cream px-8 py-4 text-sm font-medium text-espresso transition hover:border-copper hover:bg-copper hover:text-cream"
+            >
+              Order from menu <span aria-hidden>→</span>
+            </Link>
           </div>
         </div>
-      </section>
-
-      {/* FULL MENU with tabs */}
-      <section id="full-menu" className="container-x py-28 md:py-40">
-        <div className="max-w-3xl">
-          <p className="eyebrow">The Full Menu</p>
-          <h2 className="mt-6 text-5xl leading-[1.05] md:text-7xl">
-            Nine chapters, <em className="italic text-copper">endless</em> pairings.
-          </h2>
-          <p className="mt-6 max-w-xl text-lg text-foreground/70">
-            From single-origin espresso to slow-cooked pastas and wood-fired pizzas — everything
-            we serve, in one place. Prices in INR, inclusive of taxes.
-          </p>
-        </div>
-
-        {/* Tab pills */}
-        <div className="mt-14 flex flex-wrap gap-2">
-          {FULL_MENU.map((s, i) => (
-            <button
-              key={s.category}
-              onClick={() => setActiveCat(i)}
-              className={`rounded-full border px-5 py-2.5 text-sm transition ${activeCat === i
-                ? "border-espresso bg-espresso text-cream"
-                : "border-border bg-transparent text-foreground/70 hover:border-copper hover:text-copper"
-                }`}
-            >
-              {s.category}
-            </button>
-          ))}
-        </div>
-
-        {/* Active category */}
-        <div className="mt-14 grid gap-x-16 gap-y-10 md:grid-cols-2">
-          {FULL_MENU[activeCat].items.map(([name, desc, price]) => (
-            <div key={name} className="group border-b border-border pb-6">
-              <div className="flex items-baseline justify-between gap-6">
-                <div className="font-display text-xl transition group-hover:text-copper">{name}</div>
-                <div className="shrink-0 font-display text-lg text-copper">{price}</div>
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">{desc}</div>
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-16 max-w-2xl text-sm text-muted-foreground">
-          ✦ Vegetarian, vegan and gluten-free options available across the menu. Please inform
-          us of any allergies — our kitchen is happy to adapt.
-        </p>
       </section>
 
       {/* AMBIENCE — real interior photo */}
@@ -622,10 +667,10 @@ function Home() {
         </div>
         <div className="order-1 flex flex-col justify-center md:order-2">
           <p className="eyebrow">Ambience</p>
-          <h2 className="mt-6 text-5xl md:text-6xl">
+          <h2 className="mt-6 text-4xl md:text-6xl">
             Somewhere between a <em className="italic text-copper">library</em> and a living room.
           </h2>
-          <p className="mt-8 text-lg leading-relaxed text-foreground/80">
+          <p className="mt-8 text-sm leading-relaxed text-foreground/80">
             Warm wooden panels. Edison-bulb glow. Framed art on every wall. Our corners were
             built for lingering — bring a friend, a laptop, a novel, or all three.
           </p>
@@ -650,7 +695,7 @@ function Home() {
           <div className="flex flex-wrap items-end justify-between gap-8">
             <div>
               <p className="eyebrow">Guest Book</p>
-              <h2 className="mt-6 text-5xl md:text-7xl">
+              <h2 className="mt-6 text-4xl md:text-7xl">
                 What our <em className="italic text-copper">regulars</em> say.
               </h2>
             </div>
@@ -753,7 +798,7 @@ function Home() {
         <div className="container-x grid gap-16 py-28 md:grid-cols-2 md:py-40">
           <div>
             <p className="eyebrow">Visit</p>
-            <h2 className="mt-6 text-5xl md:text-7xl leading-[1]">
+            <h2 className="mt-6 text-4xl md:text-7xl leading-[1]">
               Come <em className="italic text-copper">write</em> your chapter.
             </h2>
             <p className="mt-8 max-w-md text-lg text-foreground/70">
