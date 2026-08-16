@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+import heroImage from "@/assets/order-hero.jpg";
 
 const ORDER_PHONE = "917086248042";
 
@@ -114,8 +116,40 @@ const MENU_ITEMS = FULL_MENU.flatMap((section) =>
   })),
 );
 
+const NAV = [
+  { href: "/#story", label: "Story" },
+  { href: "/#menu", label: "Menu" },
+  { href: "/order", label: "Order" },
+  { href: "/#reviews", label: "Reviews" },
+  { href: "/#visit", label: "Visit" },
+];
+
+const STEPS = [
+  { key: "table", label: "Table" },
+  { key: "menu", label: "Menu" },
+  { key: "review", label: "Review" },
+  { key: "complete", label: "Complete" },
+] as const;
+
 export const Route = createFileRoute("/order")({
   component: OrderPage,
+  head: () => ({
+    meta: [
+      { title: "Order at your table · Bean Journal" },
+      {
+        name: "description",
+        content:
+          "Enter your table number, browse the Bean Journal menu and send your order to our team on WhatsApp.",
+      },
+      { property: "og:title", content: "Order at your table · Bean Journal" },
+      {
+        property: "og:description",
+        content: "Quick table ordering for coffee, breakfast, pizza and desserts at Bean Journal.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
 });
 
 function OrderPage() {
@@ -124,6 +158,29 @@ function OrderPage() {
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
   const [activeCategory, setActiveCategory] = useState(0);
   const [activeStep, setActiveStep] = useState<"table" | "menu" | "review" | "complete">("table");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuSearch, setMenuSearch] = useState("");
+
+  const matchingMenuItems = useMemo(() => {
+    const query = menuSearch.trim().toLowerCase();
+
+    if (!query) return [] as (readonly [string, string, string])[];
+
+    return FULL_MENU.flatMap((section) =>
+      section.items.filter(([name]) => {
+        const cleanedName = name.toLowerCase().replace(/^(the|a|an)\s+/i, "").trim();
+        return cleanedName.startsWith(query);
+      }),
+    );
+  }, [menuSearch]);
+
+  const visibleSections = useMemo(() => {
+    const query = menuSearch.trim();
+
+    if (!query) return FULL_MENU;
+
+    return [{ category: "Matches", items: matchingMenuItems }];
+  }, [matchingMenuItems, menuSearch]);
 
   const orderList = useMemo(
     () => MENU_ITEMS.filter((item) => (selectedItems[item.name] ?? 0) > 0),
@@ -140,13 +197,19 @@ function OrderPage() {
     [orderList, selectedItems],
   );
 
-  const currentCategory = FULL_MENU[activeCategory] ?? FULL_MENU[0];
+  const currentCategory = visibleSections[activeCategory] ?? visibleSections[0] ?? FULL_MENU[0];
 
   useEffect(() => {
     if (tableNumber.trim() && activeStep === "table") {
       setActiveStep("menu");
     }
   }, [tableNumber, activeStep]);
+
+  useEffect(() => {
+    if (activeCategory >= visibleSections.length) {
+      setActiveCategory(0);
+    }
+  }, [activeCategory, visibleSections.length]);
 
   const updateItemQty = (name: string, delta: number) => {
     setSelectedItems((prev) => {
@@ -171,7 +234,8 @@ function OrderPage() {
     if (!tableNumber.trim() || orderList.length === 0) return;
 
     const lines = orderList.map(
-      (item) => `${selectedItems[item.name]}x ${item.name} — ₹${item.price * (selectedItems[item.name] ?? 0)}`,
+      (item) =>
+        `${selectedItems[item.name]}x ${item.name} — ₹${item.price * (selectedItems[item.name] ?? 0)}`,
     );
 
     const message = [
@@ -186,266 +250,360 @@ function OrderPage() {
     ].join("\n");
 
     setActiveStep("complete");
-    window.open(`https://wa.me/${ORDER_PHONE}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    window.open(
+      `https://wa.me/${ORDER_PHONE}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   const renderProgress = () => {
-    const steps = [
-      { key: "table", label: "Table" },
-      { key: "menu", label: "Menu" },
-      { key: "review", label: "Review" },
-      { key: "complete", label: "Complete" },
-    ] as const;
+    const currentIndex = STEPS.findIndex((step) => step.key === activeStep);
 
     return (
-      <div className="mx-auto mb-8 max-w-2xl overflow-hidden px-1 sm:mb-10">
-        <div className="flex items-center justify-between gap-2 sm:gap-3">
-          {steps.map((step, index) => {
-            const isActive = activeStep === step.key;
-            const isComplete = ["table", "menu", "review", "complete"].indexOf(activeStep) > index;
-            const isLast = index === steps.length - 1;
+      <div className="border-b border-border px-4 py-6 sm:px-8 sm:py-8">
+        <ol className="mx-auto flex w-full max-w-2xl items-start">
+          {STEPS.map((step, index) => {
+            const isActive = index === currentIndex;
+            const isComplete = index < currentIndex;
+            const isLast = index === STEPS.length - 1;
 
             return (
-              <div key={step.key} className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                  <div
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium transition-all ${
+              <li
+                key={step.key}
+                className={`flex min-w-0 items-start ${isLast ? "shrink-0" : "flex-1"}`}
+              >
+                <div className="flex w-10 shrink-0 flex-col items-center gap-2 sm:w-14">
+                  <span
+                    className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-medium tabular-nums transition-all sm:h-8 sm:w-8 sm:text-xs ${
                       isComplete
                         ? "border-espresso bg-espresso text-cream"
                         : isActive
-                          ? "border-copper bg-copper text-cream shadow-[0_0_0_4px_rgba(197,120,68,0.12)]"
+                          ? "border-copper bg-copper text-cream"
                           : "border-border bg-card text-muted-foreground"
                     }`}
                   >
-                    {isComplete ? "✓" : index + 1}
-                  </div>
-
-                  <div className="hidden min-w-0 flex-1 text-left sm:block">
-                    <div className="truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                      {step.label}
-                    </div>
-                  </div>
+                    {isComplete ? "✓" : String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    className={`text-[10px] tracking-wide sm:text-xs ${
+                      isActive ? "font-semibold text-espresso" : "text-muted-foreground"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
                 </div>
 
                 {!isLast && (
-                  <div
-                    className={`h-px flex-1 rounded-full ${
-                      isComplete ? "bg-espresso" : "bg-border"
+                  <span
+                    aria-hidden="true"
+                    className={`mt-3.5 h-px min-w-0 flex-1 sm:mt-4 ${
+                      isComplete ? "bg-espresso/40" : "bg-border"
                     }`}
                   />
                 )}
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </div>
     );
   };
 
   const renderTableStep = () => (
-    <div className="mx-auto max-w-5xl">
-      <div className="mb-8 text-left">
-        <p className="eyebrow">Quick Order</p>
-        <h1 className="mt-5 max-w-xl text-4xl leading-[0.96] md:text-6xl">
-          Order <em className="italic text-copper">your table</em> favourites.
-        </h1>
-      </div>
-
-      <div className="mx-auto max-w-xl rounded-[28px] border border-border bg-card p-5 shadow-[0_18px_60px_rgba(41,22,12,0.08)] sm:p-7">
-        <div className="mb-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Table number</div>
-
-        <label className="sr-only" htmlFor="table-number">Table number</label>
-        <input
-          id="table-number"
-          value={tableDraft}
-          onChange={(event) => setTableDraft(event.target.value)}
-          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-lg text-foreground outline-none transition focus:border-copper"
-          placeholder="e.g. 34"
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 lg:py-12">
+      <div className="relative overflow-hidden rounded-[1.5rem] lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat lg:hidden"
+          style={{ backgroundImage: `url(${heroImage})`, minHeight: "78vh" }}
         />
+        <div className="absolute inset-0 bg-gradient-to-b from-espresso/60 via-espresso/50 to-espresso/85 lg:hidden" />
 
-        <button
-          type="button"
-          onClick={handleContinueToMenu}
-          disabled={!tableDraft.trim()}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-espresso px-6 py-3 text-sm font-medium text-cream transition hover:bg-copper disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Continue to menu
-          <span aria-hidden="true">→</span>
-        </button>
+        <div className="relative z-10 grid min-h-[78vh] items-end gap-6 px-4 pb-8 pt-20 lg:grid-cols-[0.95fr_1.05fr] lg:gap-8 lg:min-h-0 lg:px-0 lg:pb-0 lg:pt-0">
+          <div className="flex flex-col justify-end text-cream lg:justify-center lg:px-0 lg:pb-0 lg:pt-0 lg:text-foreground">
+            <p className="eyebrow text-cream/90 lg:text-copper">Quick Order</p>
+            <h1 className="mt-5 max-w-md font-display text-[2.4rem] leading-[0.98] text-white sm:text-5xl lg:text-[4.2rem] lg:text-foreground">
+              Order <em className="italic text-[#f3c9a7] lg:text-copper">your table</em> favourites.
+            </h1>
+
+            <div className="mt-8 max-w-md rounded-[1.5rem] border border-border/80 bg-[oklch(0.99_0.004_80)]/85 p-5 shadow-[0_18px_50px_rgba(41,22,12,0.06)] backdrop-blur-sm sm:mt-10 sm:p-7 lg:bg-[oklch(0.99_0.004_80)] lg:backdrop-blur-none">
+              <label
+                htmlFor="table-number"
+                className="block text-[10px] uppercase tracking-[0.25em] text-muted-foreground"
+              >
+                Table number
+              </label>
+              <input
+                id="table-number"
+                inputMode="numeric"
+                value={tableDraft}
+                onChange={(event) => setTableDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleContinueToMenu();
+                }}
+                className="mt-4 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-lg text-foreground outline-none transition placeholder:text-muted-foreground/60 focus:border-copper"
+                placeholder="e.g. 34"
+              />
+
+              <button
+                type="button"
+                onClick={handleContinueToMenu}
+                disabled={!tableDraft.trim()}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-espresso px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-copper disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Continue to menu
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="hidden lg:block lg:h-full">
+            <div className="relative h-[320px] w-full overflow-hidden rounded-b-[2rem] sm:h-[420px] lg:h-full lg:rounded-none">
+              <img
+                src={heroImage}
+                alt="Latte with rosetta art beside a vase of dried flowers on a sunlit café table"
+                width={1024}
+                height={1280}
+                className="torn-edge-top md:torn-edge-left md:object-center absolute inset-0 h-full w-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 
   const renderMenuStep = () => (
-    <div className="mx-auto max-w-6xl pb-28">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Menu</div>
-          <h2 className="mt-2 font-display text-4xl text-espresso">Our Menu</h2>
+    <div className="px-4 pb-8 pt-8 sm:px-8 sm:pb-10">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="eyebrow">Step 02</p>
+          <h2 className="mt-3 font-display text-3xl sm:text-4xl">
+            Our <em className="italic text-copper">menu</em>
+          </h2>
         </div>
-
-        <div className="rounded-full border border-border bg-card px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        <span className="shrink-0 rounded-full border border-border bg-card px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
           Table {tableNumber}
+        </span>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-border bg-[oklch(0.99_0.004_80)] p-3.5 shadow-[0_10px_30px_rgba(33,22,13,0.04)] sm:p-4">
+        <label htmlFor="menu-search" className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+          Search menu
+        </label>
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base text-muted-foreground">
+            ⌕
+          </span>
+          <input
+            id="menu-search"
+            type="search"
+            value={menuSearch}
+            onChange={(event) => setMenuSearch(event.target.value)}
+            placeholder="Search coffee, pizza, desserts..."
+            className="w-full rounded-xl border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/65 focus:border-copper"
+          />
         </div>
       </div>
 
-      <div className="rounded-[30px] border border-border bg-card p-3 shadow-[0_22px_60px_rgba(41,22,12,0.08)] sm:p-5">
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {FULL_MENU.map((section, index) => (
-            <button
-              key={section.category}
-              type="button"
-              onClick={() => setActiveCategory(index)}
-              className={`whitespace-nowrap rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.2em] transition sm:px-4 ${
-                index === activeCategory
-                  ? "border-copper bg-copper/10 text-copper"
-                  : "border-border bg-background text-muted-foreground hover:border-copper hover:text-copper"
-              }`}
-            >
-              {section.category}
-            </button>
-          ))}
-        </div>
+      <div className="mt-6 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {visibleSections.map((section, index) => (
+          <button
+            key={section.category}
+            type="button"
+            onClick={() => setActiveCategory(index)}
+            className={`whitespace-nowrap rounded-full border px-4 py-2 text-[10px] uppercase tracking-[0.18em] transition ${
+              index === activeCategory
+                ? "border-espresso bg-espresso text-cream"
+                : "border-border bg-card text-muted-foreground hover:border-copper hover:text-copper"
+            }`}
+          >
+            {section.category}
+          </button>
+        ))}
+      </div>
 
-        <div className="rounded-[24px] border border-border bg-[#f5efe7] p-4 sm:p-6">
-          <div className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-4">
-            <h3 className="font-display text-2xl text-espresso sm:text-3xl">{currentCategory.category}</h3>
-            <span className="font-display text-lg text-copper">{String(activeCategory + 1).padStart(2, "0")}</span>
+      {visibleSections.length === 0 ? (
+        <div className="mt-5 rounded-2xl border border-dashed border-border bg-[oklch(0.99_0.004_80)] p-8 text-center">
+          <div className="font-display text-2xl">No matches found</div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Try a different search, like “coffee”, “pizza”, or “breakfast”.
+          </p>
+          <button
+            type="button"
+            onClick={() => setMenuSearch("")}
+            className="mt-5 rounded-full border border-border px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground transition hover:border-copper hover:text-copper"
+          >
+            Clear search
+          </button>
+        </div>
+      ) : (
+        <div className="mt-5 rounded-2xl border border-border bg-[oklch(0.99_0.004_80)] p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+            <h3 className="min-w-0 truncate font-display text-2xl sm:text-3xl">
+              {currentCategory.category}
+            </h3>
+            <span className="shrink-0 font-display text-lg text-copper tabular-nums">
+              {menuSearch.trim() ? `${currentCategory.items.length} matches` : String(activeCategory + 1).padStart(2, "0")}
+            </span>
           </div>
 
-          <div className="space-y-0">
+          <ul>
             {currentCategory.items.map(([name, desc, price]) => {
               const quantity = selectedItems[name] ?? 0;
 
               return (
-                <div key={name} className="border-b border-border py-4 last:border-b-0 last:pb-0 first:pt-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-display text-xl text-espresso sm:text-2xl">{name}</div>
-                      <div className="mt-1 text-sm leading-relaxed text-muted-foreground">{desc}</div>
+                <li
+                  key={name}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 border-b border-border py-4 last:border-b-0 last:pb-0"
+                >
+                  <div className="min-w-0">
+                    <div className="font-display text-lg sm:text-xl">{name}</div>
+                    <div className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                      {desc}
                     </div>
-                    <div className="shrink-0 text-sm font-medium text-copper sm:text-base">{price}</div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => updateItemQty(name, -1)}
-                      aria-label={`Decrease ${name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-xl text-espresso transition hover:border-copper hover:text-copper"
-                    >
-                      −
-                    </button>
-                    <span className="min-w-8 text-center text-sm font-medium text-espresso">{quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateItemQty(name, 1)}
-                      aria-label={`Increase ${name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-xl text-espresso transition hover:border-copper hover:text-copper"
-                    >
-                      +
-                    </button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-sm font-medium text-copper tabular-nums">{price}</span>
+                    <div className="flex items-center gap-1.5 rounded-full border border-border bg-background p-1">
+                      <button
+                        type="button"
+                        onClick={() => updateItemQty(name, -1)}
+                        aria-label={`Decrease ${name}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-espresso transition hover:bg-secondary"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-5 text-center text-sm font-medium tabular-nums">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateItemQty(name, 1)}
+                        aria-label={`Increase ${name}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-espresso transition hover:bg-secondary"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
+      )}
 
-        <div className="mt-5 flex items-center justify-center gap-2">
-          {FULL_MENU.map((section, index) => (
-            <button
-              key={section.category}
-              type="button"
-              aria-label={`Go to ${section.category}`}
-              onClick={() => setActiveCategory(index)}
-              className={`h-2.5 rounded-full transition-all duration-300 ${
-                activeCategory === index ? "w-8 bg-copper" : "w-2.5 bg-[#d5cabd] hover:bg-[#c9b5a2]"
-              }`}
-            />
-          ))}
-        </div>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+        {visibleSections.map((section, index) => (
+          <button
+            key={section.category}
+            type="button"
+            aria-label={`Go to ${section.category}`}
+            aria-current={activeCategory === index}
+            onClick={() => setActiveCategory(index)}
+            className={`h-2.5 rounded-full transition-all duration-300 ${
+              activeCategory === index ? "w-7 bg-copper" : "w-2.5 bg-sand hover:bg-copper/40"
+            }`}
+          />
+        ))}
       </div>
     </div>
   );
 
   const renderReviewStep = () => (
-    <div className="mx-auto max-w-5xl pb-28">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
-          <p className="eyebrow">Review</p>
-          <h2 className="mt-3 font-display text-4xl text-espresso">Review your order</h2>
-        </div>
-        <button
-          type="button"
-          onClick={() => setActiveStep("menu")}
-          className="rounded-full border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.18em] text-muted-foreground transition hover:border-copper hover:text-copper"
-        >
-          Edit
-        </button>
-      </div>
+    <div className="px-4 pb-10 pt-8 sm:px-8">
+      <p className="eyebrow">Step 03</p>
+      <h2 className="mt-3 font-display text-3xl sm:text-4xl">
+        Review <em className="italic text-copper">your</em> order
+      </h2>
 
-      <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-        <div className="rounded-[28px] border border-border bg-card p-5 shadow-[0_18px_60px_rgba(41,22,12,0.08)] sm:p-6">
-          <div className="mb-5 flex items-center justify-between gap-4 border-b border-border pb-4">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Table number</div>
-              <div className="mt-2 font-display text-3xl text-espresso">{tableNumber}</div>
-            </div>
+      <div className="mt-7 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            Table number
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border bg-[oklch(0.99_0.004_80)] px-4 py-3">
+            <span className="font-display text-2xl tabular-nums">{tableNumber}</span>
             <button
               type="button"
               onClick={() => {
-                setActiveStep("table");
                 setTableDraft(tableNumber);
+                setTableNumber("");
+                setActiveStep("table");
               }}
-              className="text-xs uppercase tracking-[0.18em] text-copper transition hover:text-espresso"
+              className="rounded-full border border-border px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground transition hover:border-copper hover:text-copper"
             >
               Edit
             </button>
           </div>
 
-          <div className="space-y-0">
+          <div className="mt-6 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            Your order
+          </div>
+          <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-[oklch(0.99_0.004_80)]">
+            {orderList.length === 0 && (
+              <li className="px-4 py-6 text-sm text-muted-foreground">
+                Your cart is empty. Head back to the menu to add something warm.
+              </li>
+            )}
             {orderList.map((item) => (
-              <div key={item.name} className="flex items-center justify-between gap-4 border-b border-border py-4 last:border-b-0">
+              <li key={item.name} className="flex items-center gap-3 px-4 py-3.5">
                 <div className="min-w-0 flex-1">
-                  <div className="font-display text-xl text-espresso">{item.name}</div>
-                  <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  <div className="truncate font-display text-lg">{item.name}</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
                     {selectedItems[item.name]} × ₹{item.price}
                   </div>
                 </div>
-                <div className="text-sm font-medium text-copper">₹{item.price * (selectedItems[item.name] ?? 0)}</div>
-              </div>
+                <div className="shrink-0 text-sm font-medium tabular-nums">
+                  ₹{item.price * (selectedItems[item.name] ?? 0)}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateItemQty(item.name, -(selectedItems[item.name] ?? 0))}
+                  aria-label={`Remove ${item.name}`}
+                  className="shrink-0 text-copper/70 transition hover:text-copper"
+                >
+                  ✕
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
+
+          <button
+            type="button"
+            onClick={() => setActiveStep("menu")}
+            className="mt-5 rounded-full border border-border px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground transition hover:border-copper hover:text-copper"
+          >
+            Back to menu
+          </button>
         </div>
 
-        <div className="rounded-[28px] border border-espresso bg-espresso p-5 text-cream shadow-[0_18px_60px_rgba(41,22,12,0.18)] sm:p-6">
-          <div className="mb-4 text-[10px] uppercase tracking-[0.2em] text-copper">Order summary</div>
-          <div className="space-y-3 text-sm text-cream/80">
-            {orderList.map((item) => (
-              <div key={item.name} className="flex items-center justify-between gap-4">
-                <span>{item.name}</span>
-                <span>₹{item.price * (selectedItems[item.name] ?? 0)}</span>
-              </div>
-            ))}
+        <div className="rounded-2xl bg-espresso p-6 text-cream">
+          <div className="font-display text-2xl">Order Summary</div>
+
+          <div className="mt-5 space-y-3 text-sm text-cream/75">
+            <div className="flex items-center justify-between">
+              <span>Items ({totalItems})</span>
+              <span className="tabular-nums">₹{subtotal}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Taxes &amp; Charges</span>
+              <span className="tabular-nums">₹0</span>
+            </div>
           </div>
 
-          <div className="mt-5 border-t border-cream/10 pt-4">
-            <div className="flex items-center justify-between text-sm text-cream/70">
-              <span>Items</span>
-              <span>{totalItems}</span>
-            </div>
-            <div className="mt-3 flex items-center justify-between font-display text-2xl text-cream">
-              <span>Total</span>
-              <span>₹{subtotal}</span>
-            </div>
+          <div className="mt-5 flex items-center justify-between border-t border-cream/15 pt-5 font-display text-2xl">
+            <span>Total</span>
+            <span className="tabular-nums">₹{subtotal}</span>
           </div>
 
           <button
             type="button"
             onClick={handlePlaceOrder}
             disabled={orderList.length === 0}
-            className="mt-6 w-full rounded-full bg-copper px-6 py-3 text-sm font-medium text-cream transition hover:bg-cream hover:text-espresso disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 w-full rounded-lg bg-copper px-5 py-3.5 text-sm font-medium text-cream transition hover:bg-cream hover:text-espresso disabled:cursor-not-allowed disabled:opacity-50"
           >
             Place order on WhatsApp
           </button>
@@ -455,17 +613,19 @@ function OrderPage() {
   );
 
   const renderCompleteStep = () => (
-    <div className="mx-auto max-w-xl pb-24 pt-8 text-center">
-      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-espresso text-4xl text-cream shadow-[0_14px_30px_rgba(41,22,12,0.18)]">
+    <div className="px-4 py-14 text-center sm:px-8 sm:py-20">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-espresso text-3xl text-cream">
         ✓
       </div>
 
-      <h2 className="font-display text-4xl text-espresso sm:text-5xl">Order placed!</h2>
-      <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+      <h2 className="mt-7 font-display text-3xl sm:text-4xl">Order placed!</h2>
+      <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
         We&apos;ve sent your order to our team. They&apos;ll start preparing it shortly.
       </p>
 
-      <div className="mt-6 text-xs uppercase tracking-[0.22em] text-muted-foreground">Table {tableNumber}</div>
+      <div className="mt-5 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+        Table {tableNumber}
+      </div>
 
       <button
         type="button"
@@ -476,28 +636,92 @@ function OrderPage() {
           setActiveCategory(0);
           setActiveStep("table");
         }}
-        className="mt-8 rounded-full bg-espresso px-6 py-3 text-sm font-medium text-cream transition hover:bg-copper"
+        className="mt-8 rounded-lg bg-espresso px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-copper"
       >
         Place another order
       </button>
     </div>
   );
 
+  const showOrderBar = activeStep === "menu" && orderList.length > 0 && !!tableNumber.trim();
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="container-x flex items-center justify-between py-4">
-          <Link to="/" className="font-display text-2xl text-espresso">
-            Bean Journal
-          </Link>
-          <div className="rounded-full border border-border bg-card px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            WhatsApp desk · +91 70862 48042
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="fixed top-0 z-50 w-full bg-background/90 backdrop-blur-md">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+          <a href="/#top" className="flex items-baseline gap-2">
+            <span className="font-display text-xl tracking-tight text-foreground">Bean Journal</span>
+            <span className="hidden text-[10px] tracking-[0.25em] uppercase text-copper sm:inline">
+              Boutique Café
+            </span>
+          </a>
+
+          <ul className="hidden gap-7 text-sm lg:flex">
+            {NAV.map((item) => (
+              <li key={item.href}>
+                {item.href.startsWith("/") ? (
+                  <Link to={item.href} className="text-foreground/70 transition hover:text-copper">
+                    {item.label}
+                  </Link>
+                ) : (
+                  <a href={item.href} className="text-foreground/70 transition hover:text-copper">
+                    {item.label}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            aria-label="Toggle navigation"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground lg:hidden"
+          >
+            <span className="flex flex-col gap-1.5">
+              <span className={`block h-0.5 w-5 rounded-full bg-current transition ${mobileMenuOpen ? "translate-y-[7px] rotate-45" : ""}`} />
+              <span className={`block h-0.5 w-5 rounded-full bg-current transition ${mobileMenuOpen ? "opacity-0" : "opacity-100"}`} />
+              <span className={`block h-0.5 w-5 rounded-full bg-current transition ${mobileMenuOpen ? "-translate-y-[7px] -rotate-45" : ""}`} />
+            </span>
+          </button>
+        </nav>
+
+        {mobileMenuOpen && (
+          <div className="border-t border-border/80 bg-background/90 backdrop-blur-md sm:hidden">
+            <div className="mx-auto grid max-w-7xl gap-1 px-2 py-2 text-center text-[11px] leading-none text-foreground/70">
+              {NAV.map((item, index) => (
+                <div key={item.href} className="min-w-0">
+                  {item.href.startsWith("/") ? (
+                    <Link
+                      to={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block rounded-full px-1 py-2 transition ${
+                        item.href === "/order" ? "font-semibold text-copper" : "hover:text-copper"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <a
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block rounded-full px-1 py-2 transition ${
+                        index === 2 ? "font-semibold text-copper" : "hover:text-copper"
+                      }`}
+                    >
+                      {item.label}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </header>
 
-      <main className="container-x py-8 md:py-12">
-        {activeStep !== "complete" && renderProgress()}
+      <main className="pt-20">
+        {renderProgress()}
 
         {activeStep === "table" && renderTableStep()}
         {activeStep === "menu" && renderMenuStep()}
@@ -505,19 +729,23 @@ function OrderPage() {
         {activeStep === "complete" && renderCompleteStep()}
       </main>
 
-      {activeStep !== "complete" && orderList.length > 0 && tableNumber.trim() && (
+      {showOrderBar && <div className="h-24" aria-hidden="true" />}
+
+      {showOrderBar && (
         <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
-          <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-full border border-espresso/10 bg-white/90 p-2 shadow-[0_20px_50px_rgba(34,26,17,0.18)] backdrop-blur-md">
-            <div className="px-3 text-left">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Table {tableNumber}</div>
-              <div className="font-display text-lg text-espresso">₹{subtotal}</div>
+          <div className="grid w-full max-w-md grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-[0_18px_50px_oklch(0.245_0.026_45/0.18)] backdrop-blur">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                {totalItems} item{totalItems === 1 ? "" : "s"} · Table {tableNumber}
+              </div>
+              <div className="font-display text-lg tabular-nums">₹{subtotal}</div>
             </div>
             <button
               type="button"
-              onClick={() => setActiveStep(activeStep === "review" ? "review" : "review")}
-              className="rounded-full bg-espresso px-5 py-3 text-sm font-medium text-cream transition hover:bg-copper"
+              onClick={() => setActiveStep("review")}
+              className="shrink-0 rounded-full bg-espresso px-5 py-3 text-xs font-medium uppercase tracking-[0.16em] text-cream transition hover:bg-copper"
             >
-              View order
+              View summary
             </button>
           </div>
         </div>
