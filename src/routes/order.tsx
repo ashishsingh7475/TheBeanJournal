@@ -122,49 +122,8 @@ function OrderPage() {
   const [tableDraft, setTableDraft] = useState("");
   const [tableNumber, setTableNumber] = useState("");
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
-  const [activeSlide, setActiveSlide] = useState(0);
-  const menuScrollerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const scroller = menuScrollerRef.current;
-    if (!scroller) return;
-
-    const updateActiveSlide = () => {
-      const cards = Array.from(scroller.querySelectorAll<HTMLElement>("[data-slide-card]"));
-      if (!cards.length) return;
-
-      const viewportCenter = scroller.scrollLeft + scroller.clientWidth / 2;
-      let closestIndex = 0;
-      let closestDistance = Number.POSITIVE_INFINITY;
-
-      cards.forEach((card, index) => {
-        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-        const distance = Math.abs(cardCenter - viewportCenter);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
-        }
-      });
-
-      setActiveSlide(closestIndex);
-    };
-
-    updateActiveSlide();
-    scroller.addEventListener("scroll", updateActiveSlide, { passive: true });
-
-    return () => scroller.removeEventListener("scroll", updateActiveSlide);
-  }, [tableNumber]);
-
-  const scrollToSlide = (index: number) => {
-    const scroller = menuScrollerRef.current;
-    const cards = scroller ? Array.from(scroller.querySelectorAll<HTMLElement>("[data-slide-card]")) : [];
-    const target = cards[index];
-
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-      setActiveSlide(index);
-    }
-  };
+  const [activeCategory, setActiveCategory] = useState(0);
+  const [activeStep, setActiveStep] = useState<"table" | "menu" | "review" | "complete">("table");
 
   const orderList = useMemo(
     () => MENU_ITEMS.filter((item) => (selectedItems[item.name] ?? 0) > 0),
@@ -181,6 +140,14 @@ function OrderPage() {
     [orderList, selectedItems],
   );
 
+  const currentCategory = FULL_MENU[activeCategory] ?? FULL_MENU[0];
+
+  useEffect(() => {
+    if (tableNumber.trim() && activeStep === "table") {
+      setActiveStep("menu");
+    }
+  }, [tableNumber, activeStep]);
+
   const updateItemQty = (name: string, delta: number) => {
     setSelectedItems((prev) => {
       const nextQty = (prev[name] ?? 0) + delta;
@@ -192,232 +159,353 @@ function OrderPage() {
     });
   };
 
+  const handleContinueToMenu = () => {
+    const cleanValue = tableDraft.trim();
+    if (!cleanValue) return;
+
+    setTableNumber(cleanValue);
+    setActiveStep("menu");
+  };
+
   const handlePlaceOrder = () => {
     if (!tableNumber.trim() || orderList.length === 0) return;
 
     const lines = orderList.map(
-      (item) => `${selectedItems[item.name]}x ${item.name} - ₹${item.price * (selectedItems[item.name] ?? 0)}`,
+      (item) => `${selectedItems[item.name]}x ${item.name} — ₹${item.price * (selectedItems[item.name] ?? 0)}`,
     );
 
     const message = [
-      "Hello Bean Journal!",
+      "Bean Journal",
       `Table: ${tableNumber.trim()}`,
       "",
       "Order:",
       ...lines,
       "",
       `Total: ₹${subtotal}`,
-      "Please prepare this for my table.",
+      "Please prepare this order for my table.",
     ].join("\n");
 
+    setActiveStep("complete");
     window.open(`https://wa.me/${ORDER_PHONE}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   };
 
+  const renderProgress = () => {
+    const steps = [
+      { key: "table", label: "Table" },
+      { key: "menu", label: "Menu" },
+      { key: "review", label: "Review" },
+      { key: "complete", label: "Complete" },
+    ] as const;
+
+    return (
+      <div className="mx-auto mb-8 max-w-2xl overflow-hidden px-1 sm:mb-10">
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
+          {steps.map((step, index) => {
+            const isActive = activeStep === step.key;
+            const isComplete = ["table", "menu", "review", "complete"].indexOf(activeStep) > index;
+            const isLast = index === steps.length - 1;
+
+            return (
+              <div key={step.key} className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                  <div
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium transition-all ${
+                      isComplete
+                        ? "border-espresso bg-espresso text-cream"
+                        : isActive
+                          ? "border-copper bg-copper text-cream shadow-[0_0_0_4px_rgba(197,120,68,0.12)]"
+                          : "border-border bg-card text-muted-foreground"
+                    }`}
+                  >
+                    {isComplete ? "✓" : index + 1}
+                  </div>
+
+                  <div className="hidden min-w-0 flex-1 text-left sm:block">
+                    <div className="truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {step.label}
+                    </div>
+                  </div>
+                </div>
+
+                {!isLast && (
+                  <div
+                    className={`h-px flex-1 rounded-full ${
+                      isComplete ? "bg-espresso" : "bg-border"
+                    }`}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTableStep = () => (
+    <div className="mx-auto max-w-5xl">
+      <div className="mb-8 text-left">
+        <p className="eyebrow">Quick Order</p>
+        <h1 className="mt-5 max-w-xl text-4xl leading-[0.96] md:text-6xl">
+          Order <em className="italic text-copper">your table</em> favourites.
+        </h1>
+      </div>
+
+      <div className="mx-auto max-w-xl rounded-[28px] border border-border bg-card p-5 shadow-[0_18px_60px_rgba(41,22,12,0.08)] sm:p-7">
+        <div className="mb-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Table number</div>
+
+        <label className="sr-only" htmlFor="table-number">Table number</label>
+        <input
+          id="table-number"
+          value={tableDraft}
+          onChange={(event) => setTableDraft(event.target.value)}
+          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-lg text-foreground outline-none transition focus:border-copper"
+          placeholder="e.g. 34"
+        />
+
+        <button
+          type="button"
+          onClick={handleContinueToMenu}
+          disabled={!tableDraft.trim()}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-espresso px-6 py-3 text-sm font-medium text-cream transition hover:bg-copper disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Continue to menu
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderMenuStep = () => (
+    <div className="mx-auto max-w-6xl pb-28">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Menu</div>
+          <h2 className="mt-2 font-display text-4xl text-espresso">Our Menu</h2>
+        </div>
+
+        <div className="rounded-full border border-border bg-card px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          Table {tableNumber}
+        </div>
+      </div>
+
+      <div className="rounded-[30px] border border-border bg-card p-3 shadow-[0_22px_60px_rgba(41,22,12,0.08)] sm:p-5">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {FULL_MENU.map((section, index) => (
+            <button
+              key={section.category}
+              type="button"
+              onClick={() => setActiveCategory(index)}
+              className={`whitespace-nowrap rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.2em] transition sm:px-4 ${
+                index === activeCategory
+                  ? "border-copper bg-copper/10 text-copper"
+                  : "border-border bg-background text-muted-foreground hover:border-copper hover:text-copper"
+              }`}
+            >
+              {section.category}
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-[24px] border border-border bg-[#f5efe7] p-4 sm:p-6">
+          <div className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-4">
+            <h3 className="font-display text-2xl text-espresso sm:text-3xl">{currentCategory.category}</h3>
+            <span className="font-display text-lg text-copper">{String(activeCategory + 1).padStart(2, "0")}</span>
+          </div>
+
+          <div className="space-y-0">
+            {currentCategory.items.map(([name, desc, price]) => {
+              const quantity = selectedItems[name] ?? 0;
+
+              return (
+                <div key={name} className="border-b border-border py-4 last:border-b-0 last:pb-0 first:pt-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-display text-xl text-espresso sm:text-2xl">{name}</div>
+                      <div className="mt-1 text-sm leading-relaxed text-muted-foreground">{desc}</div>
+                    </div>
+                    <div className="shrink-0 text-sm font-medium text-copper sm:text-base">{price}</div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateItemQty(name, -1)}
+                      aria-label={`Decrease ${name}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-xl text-espresso transition hover:border-copper hover:text-copper"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-8 text-center text-sm font-medium text-espresso">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateItemQty(name, 1)}
+                      aria-label={`Increase ${name}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-xl text-espresso transition hover:border-copper hover:text-copper"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-center gap-2">
+          {FULL_MENU.map((section, index) => (
+            <button
+              key={section.category}
+              type="button"
+              aria-label={`Go to ${section.category}`}
+              onClick={() => setActiveCategory(index)}
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                activeCategory === index ? "w-8 bg-copper" : "w-2.5 bg-[#d5cabd] hover:bg-[#c9b5a2]"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderReviewStep = () => (
+    <div className="mx-auto max-w-5xl pb-28">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div>
+          <p className="eyebrow">Review</p>
+          <h2 className="mt-3 font-display text-4xl text-espresso">Review your order</h2>
+        </div>
+        <button
+          type="button"
+          onClick={() => setActiveStep("menu")}
+          className="rounded-full border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.18em] text-muted-foreground transition hover:border-copper hover:text-copper"
+        >
+          Edit
+        </button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+        <div className="rounded-[28px] border border-border bg-card p-5 shadow-[0_18px_60px_rgba(41,22,12,0.08)] sm:p-6">
+          <div className="mb-5 flex items-center justify-between gap-4 border-b border-border pb-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Table number</div>
+              <div className="mt-2 font-display text-3xl text-espresso">{tableNumber}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveStep("table");
+                setTableDraft(tableNumber);
+              }}
+              className="text-xs uppercase tracking-[0.18em] text-copper transition hover:text-espresso"
+            >
+              Edit
+            </button>
+          </div>
+
+          <div className="space-y-0">
+            {orderList.map((item) => (
+              <div key={item.name} className="flex items-center justify-between gap-4 border-b border-border py-4 last:border-b-0">
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-xl text-espresso">{item.name}</div>
+                  <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                    {selectedItems[item.name]} × ₹{item.price}
+                  </div>
+                </div>
+                <div className="text-sm font-medium text-copper">₹{item.price * (selectedItems[item.name] ?? 0)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-espresso bg-espresso p-5 text-cream shadow-[0_18px_60px_rgba(41,22,12,0.18)] sm:p-6">
+          <div className="mb-4 text-[10px] uppercase tracking-[0.2em] text-copper">Order summary</div>
+          <div className="space-y-3 text-sm text-cream/80">
+            {orderList.map((item) => (
+              <div key={item.name} className="flex items-center justify-between gap-4">
+                <span>{item.name}</span>
+                <span>₹{item.price * (selectedItems[item.name] ?? 0)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 border-t border-cream/10 pt-4">
+            <div className="flex items-center justify-between text-sm text-cream/70">
+              <span>Items</span>
+              <span>{totalItems}</span>
+            </div>
+            <div className="mt-3 flex items-center justify-between font-display text-2xl text-cream">
+              <span>Total</span>
+              <span>₹{subtotal}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handlePlaceOrder}
+            disabled={orderList.length === 0}
+            className="mt-6 w-full rounded-full bg-copper px-6 py-3 text-sm font-medium text-cream transition hover:bg-cream hover:text-espresso disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Place order on WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCompleteStep = () => (
+    <div className="mx-auto max-w-xl pb-24 pt-8 text-center">
+      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-espresso text-4xl text-cream shadow-[0_14px_30px_rgba(41,22,12,0.18)]">
+        ✓
+      </div>
+
+      <h2 className="font-display text-4xl text-espresso sm:text-5xl">Order placed!</h2>
+      <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+        We&apos;ve sent your order to our team. They&apos;ll start preparing it shortly.
+      </p>
+
+      <div className="mt-6 text-xs uppercase tracking-[0.22em] text-muted-foreground">Table {tableNumber}</div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setSelectedItems({});
+          setTableDraft("");
+          setTableNumber("");
+          setActiveCategory(0);
+          setActiveStep("table");
+        }}
+        className="mt-8 rounded-full bg-espresso px-6 py-3 text-sm font-medium text-cream transition hover:bg-copper"
+      >
+        Place another order
+      </button>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container-x flex items-center justify-between py-4">
           <Link to="/" className="font-display text-2xl text-espresso">
             Bean Journal
           </Link>
-          <div className="rounded-full border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="rounded-full border border-border bg-card px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             WhatsApp desk · +91 70862 48042
           </div>
         </div>
       </header>
 
       <main className="container-x py-8 md:py-12">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="eyebrow">Quick Order</p>
-            <h1 className="mt-6 text-4xl md:text-6xl">
-              Order <em className="italic text-copper">your table</em> favourites.
-            </h1>
-          </div>
-        </div>
+        {activeStep !== "complete" && renderProgress()}
 
-        <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-muted-foreground">Table number</label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              value={tableDraft}
-              onChange={(event) => setTableDraft(event.target.value)}
-              className="w-full max-w-md rounded-xl border border-border bg-background px-4 py-3 text-lg outline-none transition focus:border-copper"
-              placeholder="e.g. T12"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const cleanValue = tableDraft.trim();
-                if (cleanValue) {
-                  setTableNumber(cleanValue);
-                }
-              }}
-              disabled={!tableDraft.trim()}
-              className="rounded-full bg-espresso px-6 py-3 text-sm font-medium text-cream transition hover:bg-copper disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Continue to menu
-            </button>
-          </div>
-        </div>
-
-        {tableNumber.trim() ? (
-          <div className="grid gap-8 pb-28 lg:grid-cols-[1.7fr_0.85fr]">
-            <div className="space-y-8">
-              <div className="rounded-2xl border border-border bg-card p-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Serving table</div>
-                    <div className="mt-2 font-display text-3xl text-espresso">{tableNumber}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTableNumber("");
-                      setTableDraft("");
-                    }}
-                    className="rounded-full border border-border px-4 py-2 text-sm transition hover:border-copper hover:text-copper"
-                  >
-                    Change table
-                  </button>
-                </div>
-              </div>
-
-<div className="overflow-x-hidden overflow-y-auto">                <div className="mb-5 flex items-center justify-between gap-3">
-                  <h2 className="font-display text-3xl text-espresso">Menu</h2>
-                  <div className="rounded-full border border-border px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    Swipe sideways
-                  </div>
-                </div>
-
-                <div
-                  ref={menuScrollerRef}
-                  className="flex gap-4 overflow-x-auto pb-4 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                  {FULL_MENU.map((section, index) => (
-                    <div
-                      key={section.category}
-                      data-slide-card
-                      className="min-w-[88vw] snap-center rounded-[28px] border border-[#3b2a22] bg-[#2f1d16] p-4 text-[#f5efe8] shadow-[0_18px_56px_rgba(15,8,7,0.25)] sm:min-w-[76vw] lg:min-w-[60vw] xl:min-w-[52vw]"
-                    >
-                      <div className="mb-6 flex items-center justify-between gap-4 border-b border-[#6a4d3e] pb-4">
-                        <h3 className="font-display text-2xl leading-none tracking-tight text-[#f5efe8] sm:text-3xl">
-                          {section.category}
-                        </h3>
-                        <span className="font-display text-xl text-[#d58a59]">{String(index + 1).padStart(2, "0")}</span>
-                      </div>
-
-                      <div className="space-y-4">
-                        {section.items.map(([name, desc, price]) => {
-                          const quantity = selectedItems[name] ?? 0;
-                          return (
-                            <div key={name} className="border-b border-[#5a3e32] pb-4 last:border-b-0 last:pb-0">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-display text-[1.4rem] leading-tight text-[#f5efe8] sm:text-[1.6rem]">
-                                    {name}
-                                  </div>
-                                  <div className="mt-2 text-sm leading-relaxed text-[#d9cec5]">{desc}</div>
-                                </div>
-                                <div className="shrink-0 text-base font-medium text-[#d58a59] sm:text-lg">{price}</div>
-                              </div>
-
-                              <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => updateItemQty(name, -1)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#6a4d3e] bg-transparent text-xl text-[#f5efe8] transition hover:border-[#d58a59] hover:text-[#d58a59]"
-                                  aria-label={`Decrease ${name}`}
-                                >
-                                  −
-                                </button>
-                                <span className="min-w-8 text-center text-sm font-medium text-[#f5efe8]">{quantity}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => updateItemQty(name, 1)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#6a4d3e] bg-transparent text-xl text-[#f5efe8] transition hover:border-[#d58a59] hover:text-[#d58a59]"
-                                  aria-label={`Increase ${name}`}
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 flex items-center justify-center gap-2">
-                  {FULL_MENU.map((section, index) => (
-                    <button
-                      key={section.category}
-                      type="button"
-                      aria-label={`Go to ${section.category}`}
-                      onClick={() => scrollToSlide(index)}
-                      className={`h-2.5 rounded-full transition-all duration-300 ${
-                        activeSlide === index
-                          ? "w-8 bg-[#d58a59]"
-                          : "w-2.5 bg-[#d9cec5]/45 hover:bg-[#d9cec5]/70"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <aside className="lg:sticky lg:top-24 lg:self-start">
-              <div className="rounded-2xl border border-border bg-espresso p-6 text-cream shadow-lg">
-                <div className="text-xs uppercase tracking-[0.2em] text-copper">Your order</div>
-                <div className="mt-5 space-y-4">
-                  {orderList.length === 0 ? (
-                    <p className="text-sm text-cream/70">Pick a few favourites to build your order.</p>
-                  ) : (
-                    orderList.map((item) => (
-                      <div key={item.name} className="flex items-center justify-between gap-4 border-b border-cream/10 pb-3 last:border-0 last:pb-0">
-                        <div>
-                          <div className="font-display text-lg">{item.name}</div>
-                          <div className="text-xs uppercase tracking-[0.18em] text-cream/60">
-                            {selectedItems[item.name]} x ₹{item.price}
-                          </div>
-                        </div>
-                        <div className="text-sm text-copper">₹{item.price * (selectedItems[item.name] ?? 0)}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="mt-8 border-t border-cream/10 pt-4">
-                  <div className="flex items-center justify-between text-sm text-cream/70">
-                    <span>Items</span>
-                    <span>{totalItems}</span>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-lg font-medium text-cream">
-                    <span>Total</span>
-                    <span>₹{subtotal}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={orderList.length === 0}
-                  onClick={handlePlaceOrder}
-                  className="mt-8 w-full rounded-full bg-copper px-6 py-3 text-sm font-medium text-cream transition hover:bg-cream hover:text-espresso disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Place order on WhatsApp
-                </button>
-              </div>
-            </aside>
-          </div>
-        ) : (
-          <div className="mb-24 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-            <p className="text-sm text-muted-foreground">Enter your table number to start ordering.</p>
-          </div>
-        )}
+        {activeStep === "table" && renderTableStep()}
+        {activeStep === "menu" && renderMenuStep()}
+        {activeStep === "review" && renderReviewStep()}
+        {activeStep === "complete" && renderCompleteStep()}
       </main>
 
-      {orderList.length > 0 && tableNumber.trim() && (
+      {activeStep !== "complete" && orderList.length > 0 && tableNumber.trim() && (
         <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
           <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-full border border-espresso/10 bg-white/90 p-2 shadow-[0_20px_50px_rgba(34,26,17,0.18)] backdrop-blur-md">
             <div className="px-3 text-left">
@@ -426,10 +514,10 @@ function OrderPage() {
             </div>
             <button
               type="button"
-              onClick={handlePlaceOrder}
+              onClick={() => setActiveStep(activeStep === "review" ? "review" : "review")}
               className="rounded-full bg-espresso px-5 py-3 text-sm font-medium text-cream transition hover:bg-copper"
             >
-              Place order
+              View order
             </button>
           </div>
         </div>
