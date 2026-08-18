@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import heroImage from "@/assets/order-hero.jpg";
 
@@ -131,6 +132,27 @@ const STEPS = [
   { key: "complete", label: "Complete" },
 ] as const;
 
+type DetectedBarcode = { rawValue?: string };
+type BarcodeDetectorLike = {
+  detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]>;
+};
+type BarcodeDetectorConstructor = new (options?: { formats: string[] }) => BarcodeDetectorLike;
+
+const getTableFromPath = (pathname: string) => {
+  const match = pathname.match(/^\/order\/([^/]+)\/?$/);
+  const table = match?.[1] ? decodeURIComponent(match[1]) : "";
+  return /^\d+$/.test(table) ? table : "";
+};
+
+const getTableFromQrValue = (value: string) => {
+  try {
+    const url = new URL(value, window.location.origin);
+    return getTableFromPath(url.pathname);
+  } catch {
+    return getTableFromPath(value);
+  }
+};
+
 export const Route = createFileRoute("/order")({
   component: OrderPage,
   head: () => ({
@@ -152,14 +174,19 @@ export const Route = createFileRoute("/order")({
   }),
 });
 
-function OrderPage() {
-  const [tableDraft, setTableDraft] = useState("");
-  const [tableNumber, setTableNumber] = useState("");
+export function OrderPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const routeTableNumber = getTableFromPath(pathname);
+  const [tableNumber, setTableNumber] = useState(routeTableNumber);
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
   const [activeCategory, setActiveCategory] = useState(0);
   const [activeStep, setActiveStep] = useState<"table" | "menu" | "review" | "complete">("table");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuSearch, setMenuSearch] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const matchingMenuItems = useMemo(() => {
     const query = menuSearch.trim().toLowerCase();
@@ -200,10 +227,69 @@ function OrderPage() {
   const currentCategory = visibleSections[activeCategory] ?? visibleSections[0] ?? FULL_MENU[0];
 
   useEffect(() => {
-    if (tableNumber.trim() && activeStep === "table") {
-      setActiveStep("menu");
+    if (routeTableNumber && routeTableNumber !== tableNumber) {
+      setTableNumber(routeTableNumber);
     }
-  }, [tableNumber, activeStep]);
+  }, [routeTableNumber, tableNumber, activeStep]);
+
+  useEffect(() => {
+    if (!isScanning) return;
+
+    const Detector = (window as typeof window & { BarcodeDetector?: BarcodeDetectorConstructor })
+      .BarcodeDetector;
+    if (!Detector) {
+      setScanError("QR scanning is not supported in this browser. Please open this page in Chrome or Safari.");
+      return;
+    }
+
+    let animationFrame = 0;
+    let stopped = false;
+    const detector = new Detector({ formats: ["qr_code"] });
+
+    const scan = async () => {
+      if (stopped || !videoRef.current || videoRef.current.readyState < 2) {
+        if (!stopped) animationFrame = requestAnimationFrame(scan);
+        return;
+      }
+
+      try {
+        const [result] = await detector.detect(videoRef.current);
+        const scannedTable = result?.rawValue ? getTableFromQrValue(result.rawValue) : "";
+        if (scannedTable) {
+          setTableNumber(scannedTable);
+          setActiveStep("menu");
+          setIsScanning(false);
+          setScanError("");
+          return;
+        }
+      } catch {
+        setScanError("We could not read that QR code. Please try again.");
+      }
+
+      if (!stopped) animationFrame = requestAnimationFrame(scan);
+    };
+
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: { ideal: "environment" } } })
+      .then((stream) => {
+        if (stopped || !videoRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        videoRef.current.srcObject = stream;
+        void videoRef.current.play();
+        animationFrame = requestAnimationFrame(scan);
+      })
+      .catch(() => setScanError("Camera access is needed to scan the table QR code."));
+
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(animationFrame);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, [isScanning]);
 
   useEffect(() => {
     if (activeCategory >= visibleSections.length) {
@@ -223,11 +309,7 @@ function OrderPage() {
   };
 
   const handleContinueToMenu = () => {
-    const cleanValue = tableDraft.trim();
-    if (!cleanValue) return;
-
-    setTableNumber(cleanValue);
-    setActiveStep("menu");
+    if (tableNumber.trim()) setActiveStep("menu");
   };
 
   const handlePlaceOrder = () => {
@@ -327,33 +409,91 @@ function OrderPage() {
             </h1>
 
             <div className="mt-8 max-w-md rounded-[1.5rem] border border-border/80 bg-[oklch(0.99_0.004_80)]/85 p-5 shadow-[0_18px_50px_rgba(41,22,12,0.06)] backdrop-blur-sm sm:mt-10 sm:p-7 lg:bg-[oklch(0.99_0.004_80)] lg:backdrop-blur-none">
-              <label
-                htmlFor="table-number"
-                className="block text-[10px] uppercase tracking-[0.25em] text-muted-foreground"
-              >
-                Table number
-              </label>
-              <input
-                id="table-number"
-                inputMode="numeric"
-                value={tableDraft}
-                onChange={(event) => setTableDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") handleContinueToMenu();
-                }}
-                className="mt-4 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-lg text-foreground outline-none transition placeholder:text-muted-foreground/60 focus:border-copper"
-                placeholder="e.g. 34"
-              />
+              {routeTableNumber ? (
+                <>
+                  <label
+                    htmlFor="table-number"
+                    className="block text-[10px] uppercase tracking-[0.25em] text-muted-foreground"
+                  >
+                    Table number
+                  </label>
+                  <input
+                    id="table-number"
+                    value={tableNumber}
+                    readOnly
+                    aria-readonly="true"
+                    className="mt-4 w-full rounded-xl border border-border bg-secondary px-4 py-3.5 text-lg text-foreground outline-none"
+                  />
+                  <p className="mt-3 text-xs text-muted-foreground">Set by this table&apos;s QR code.</p>
+                  <button
+                    type="button"
+                    onClick={handleContinueToMenu}
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-espresso px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-copper"
+                  >
+                    Continue to menu
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </>
+              ) : isScanning ? (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                        Scan table QR code
+                      </div>
+                      <p className="mt-2 text-sm text-foreground">Point your camera at the code on your table.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsScanning(false)}
+                      className="rounded-full border border-border px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground transition hover:border-copper hover:text-copper"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <video
+                    ref={videoRef}
+                    muted
+                    playsInline
+                    aria-label="Camera view for scanning the table QR code"
+                    className="mt-5 aspect-video w-full rounded-xl bg-espresso object-cover"
+                  />
+                  {scanError && <p className="mt-3 text-xs text-copper">{scanError}</p>}
+                </>
+              ) : (
+                <>
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                    Table required
+                  </div>
+                  <p className="mt-3 font-display text-2xl text-foreground">Scan your table QR code</p>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Scan the code to securely link your order to the right table.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanError("");
+                      setIsScanning(true);
+                    }}
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-espresso px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-copper"
+                  >
+                    Scan table QR code
+                    <span aria-hidden="true">⌁</span>
+                  </button>
+                  {scanError && <p className="mt-3 text-xs text-copper">{scanError}</p>}
+                </>
+              )}
 
-              <button
-                type="button"
-                onClick={handleContinueToMenu}
-                disabled={!tableDraft.trim()}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-espresso px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-copper disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Continue to menu
-                <span aria-hidden="true">→</span>
-              </button>
+              {tableNumber && !routeTableNumber && !isScanning && (
+                <button
+                  type="button"
+                  onClick={handleContinueToMenu}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-espresso px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-copper"
+                >
+                  Continue to menu
+                  <span aria-hidden="true">→</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -529,10 +669,13 @@ function OrderPage() {
             <button
               type="button"
               onClick={() => {
-                setTableDraft(tableNumber);
-                setTableNumber("");
-                setActiveStep("table");
+                if (!routeTableNumber) {
+                  setTableNumber("");
+                  setScanError("");
+                  setActiveStep("table");
+                }
               }}
+              disabled={!!routeTableNumber}
               className="rounded-full border border-border px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground transition hover:border-copper hover:text-copper"
             >
               Edit
@@ -631,10 +774,9 @@ function OrderPage() {
         type="button"
         onClick={() => {
           setSelectedItems({});
-          setTableDraft("");
-          setTableNumber("");
+          setTableNumber(routeTableNumber);
           setActiveCategory(0);
-          setActiveStep("table");
+          setActiveStep(routeTableNumber ? "menu" : "table");
         }}
         className="mt-8 rounded-lg bg-espresso px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-copper"
       >

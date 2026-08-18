@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as OrderRouteImport } from './routes/order'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OrderTableRouteImport } from './routes/order/$table'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -28,34 +29,42 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrderTableRoute = OrderTableRouteImport.update({
+  id: '/$table',
+  path: '/$table',
+  getParentRoute: () => OrderRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/order': typeof OrderRoute
+  '/order': typeof OrderRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/order/$table': typeof OrderTableRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/order': typeof OrderRoute
+  '/order': typeof OrderRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/order/$table': typeof OrderTableRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/order': typeof OrderRoute
+  '/order': typeof OrderRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/order/$table': typeof OrderTableRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/order' | '/sitemap.xml'
+  fullPaths: '/' | '/order' | '/sitemap.xml' | '/order/$table'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/order' | '/sitemap.xml'
-  id: '__root__' | '/' | '/order' | '/sitemap.xml'
+  to: '/' | '/order' | '/sitemap.xml' | '/order/$table'
+  id: '__root__' | '/' | '/order' | '/sitemap.xml' | '/order/$table'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  OrderRoute: typeof OrderRoute
+  OrderRoute: typeof OrderRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
@@ -82,12 +91,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/order/$table': {
+      id: '/order/$table'
+      path: '/$table'
+      fullPath: '/order/$table'
+      preLoaderRoute: typeof OrderTableRouteImport
+      parentRoute: typeof OrderRoute
+    }
   }
 }
 
+interface OrderRouteChildren {
+  OrderTableRoute: typeof OrderTableRoute
+}
+
+const OrderRouteChildren: OrderRouteChildren = {
+  OrderTableRoute: OrderTableRoute,
+}
+
+const OrderRouteWithChildren = OrderRoute._addFileChildren(OrderRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  OrderRoute: OrderRoute,
+  OrderRoute: OrderRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
